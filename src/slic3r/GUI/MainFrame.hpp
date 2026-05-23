@@ -380,6 +380,7 @@ public:
     CalibrationPanel*     m_calibration{ nullptr };
     WebViewPanel*         m_webview { nullptr };
     PrinterWebView*       m_printer_view{nullptr};
+    wxPanel*              m_mainsail_view{nullptr};  // MuSaiCa: panel hosting bundled Mainsail webview
     wxLogWindow*          m_log_window { nullptr };
     // BBS
     //wxBookCtrlBase*       m_tabpanel { nullptr };

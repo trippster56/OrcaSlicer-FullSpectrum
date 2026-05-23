@@ -13,6 +13,7 @@
 #include <wx/filename.h>
 #include <wx/debug.h>
 #include <wx/utils.h>
+#include <wx/webview.h>  // MuSaiCa: bundled-Mainsail webview
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/log/trivial.hpp>
@@ -66,6 +67,7 @@
 #include "NetworkTestDialog.hpp"
 #include "ConfigWizard.hpp"
 #include "Widgets/WebView.hpp"
+#include "HttpServer.hpp"  // MuSaiCa: LOCALHOST_URL, PAGE_HTTP_PORT for bundled Mainsail
 #include "DailyTips.hpp"
 
 #ifdef _WIN32
@@ -1159,7 +1161,9 @@ void MainFrame::init_tabpanel() {
     });
 
     // MuSaiCa: write a config.json next to the bundled Mainsail so it auto-connects
-    // to the active printer's Moonraker, then load it in the PrinterWebView tab.
+    // to the active printer's Moonraker, then load it in a dedicated PrinterWebView
+    // (not the shared m_printer_view, which Snapmaker's code re-points via
+    // EVT_LOAD_PRINTER_URL later in startup and would clobber our file:// URL).
     {
         boost::filesystem::path mainsail_dir =
             boost::filesystem::path(Slic3r::resources_dir()) / "webviews" / "mainsail";
@@ -1204,11 +1208,23 @@ void MainFrame::init_tabpanel() {
             BOOST_LOG_TRIVIAL(warning) << "MuSaiCa: failed to write Mainsail config.json: " << e.what();
         }
 
-        wxString mainsail_url = "file://" + wxString::FromUTF8(mainsail_index.string());
-        m_printer_view->load_url(mainsail_url);
-        m_tabpanel->AddPage(m_printer_view, _L("Mainsail"),
+        // Serve Mainsail through the slicer's in-process HTTP server (port
+        // PAGE_HTTP_PORT). HttpServer::map_url_to_file_path maps any non-
+        // flutter_web URL to resources_dir() + url, so /webviews/mainsail/
+        // resolves to mainsail_dir on disk. http:// origin lets WebKit load
+        // ES modules where file:// would refuse on null-origin grounds.
+        const std::string mainsail_http_url =
+            LOCALHOST_URL + std::to_string(PAGE_HTTP_PORT) + "/webviews/mainsail/index.html";
+        m_mainsail_view = new wxPanel(m_tabpanel);
+        auto* mainsail_sizer = new wxBoxSizer(wxVERTICAL);
+        wxWebView* mainsail_browser = WebView::CreateWebView(m_mainsail_view, mainsail_http_url);
+        if (mainsail_browser)
+            mainsail_sizer->Add(mainsail_browser, wxSizerFlags().Expand().Proportion(1));
+        m_mainsail_view->SetSizer(mainsail_sizer);
+        m_tabpanel->AddPage(m_mainsail_view, _L("Mainsail"),
                             std::string("tab_monitor_active"),
                             std::string("tab_monitor_active"), false);
+        (void)mainsail_index;
     }
 
     if (wxGetApp().is_enable_multi_machine()) {
