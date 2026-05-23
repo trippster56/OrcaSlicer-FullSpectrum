@@ -1180,18 +1180,26 @@ void MainFrame::init_tabpanel() {
             host = host.substr(0, p);
         }
 
+        const std::string config_path = (mainsail_dir / "config.json").string();
+        BOOST_LOG_TRIVIAL(warning) << "MuSaiCa: writing Mainsail config.json at " << config_path
+                                   << " (hostname=" << (host.empty() ? "<none>" : host) << ", port=" << port << ")";
         try {
-            boost::filesystem::ofstream cfg_out(mainsail_dir / "config.json");
-            cfg_out << "{\n"
-                    << "    \"defaultLocale\": \"en\",\n"
-                    << "    \"defaultMode\": \"dark\",\n"
-                    << "    \"defaultTheme\": \"mainsail\",\n"
-                    << "    \"hostname\": " << (host.empty() ? std::string("null") : ("\"" + host + "\"")) << ",\n"
-                    << "    \"port\": " << port << ",\n"
-                    << "    \"path\": null,\n"
-                    << "    \"instancesDB\": \"moonraker\",\n"
-                    << "    \"instances\": []\n"
-                    << "}\n";
+            std::ofstream cfg_out(config_path, std::ios::out | std::ios::trunc);
+            if (!cfg_out) {
+                BOOST_LOG_TRIVIAL(warning) << "MuSaiCa: could not open " << config_path << " for writing";
+            } else {
+                cfg_out << "{\n"
+                        << "    \"defaultLocale\": \"en\",\n"
+                        << "    \"defaultMode\": \"dark\",\n"
+                        << "    \"defaultTheme\": \"mainsail\",\n"
+                        << "    \"hostname\": " << (host.empty() ? std::string("null") : ("\"" + host + "\"")) << ",\n"
+                        << "    \"port\": " << port << ",\n"
+                        << "    \"path\": null,\n"
+                        << "    \"instancesDB\": \"moonraker\",\n"
+                        << "    \"instances\": []\n"
+                        << "}\n";
+                cfg_out.flush();
+            }
         } catch (const std::exception& e) {
             BOOST_LOG_TRIVIAL(warning) << "MuSaiCa: failed to write Mainsail config.json: " << e.what();
         }
