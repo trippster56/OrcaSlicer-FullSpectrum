@@ -209,9 +209,9 @@ function build_slicer() {
         mkdir -p Snapmaker_Orca
         cd Snapmaker_Orca
         # remove previously built app
-        rm -rf "./Snapmaker Orca.app"
+        rm -rf "./MuSaiCa.app"
         # determine source app path (handle both space and underscore names)
-        APP_SOURCE_PATH="../src$BUILD_DIR_CONFIG_SUBDIR/Snapmaker Orca.app"
+        APP_SOURCE_PATH="../src$BUILD_DIR_CONFIG_SUBDIR/MuSaiCa.app"
         if [ ! -d "$APP_SOURCE_PATH" ]; then
             APP_SOURCE_PATH="../src$BUILD_DIR_CONFIG_SUBDIR/Snapmaker_Orca.app"
         fi
@@ -220,19 +220,19 @@ function build_slicer() {
             exit 1
         fi
         # fully copy newly built app (rename to canonical name with space)
-        cp -pR "$APP_SOURCE_PATH" "./Snapmaker Orca.app"
+        cp -pR "$APP_SOURCE_PATH" "./MuSaiCa.app"
         # fix resources
-        resources_path=$(readlink "./Snapmaker Orca.app/Contents/Resources")
-        rm "./Snapmaker Orca.app/Contents/Resources"
-        cp -R "$resources_path" "./Snapmaker Orca.app/Contents/Resources"
+        resources_path=$(readlink "./MuSaiCa.app/Contents/Resources")
+        rm "./MuSaiCa.app/Contents/Resources"
+        cp -R "$resources_path" "./MuSaiCa.app/Contents/Resources"
         # delete .DS_Store file
-        find "./Snapmaker Orca.app/" -name '.DS_Store' -delete
+        find "./MuSaiCa.app/" -name '.DS_Store' -delete
 
         # Copy Sentry crashpad_handler and libsentry.dylib for crash reporting
         CRASHPAD_HANDLER="${DEPS}/usr/local/bin/crashpad_handler"
         LIBSENTRY="${DEPS}/usr/local/lib/libsentry.dylib"
-        APP_MACOS_DIR='./Snapmaker Orca.app/Contents/MacOS'
-        APP_FRAMEWORKS_DIR='./Snapmaker Orca.app/Contents/Frameworks'
+        APP_MACOS_DIR='./MuSaiCa.app/Contents/MacOS'
+        APP_FRAMEWORKS_DIR='./MuSaiCa.app/Contents/Frameworks'
         EXECUTABLE="${APP_MACOS_DIR}/Snapmaker_Orca"
         
         if [ -f "${CRASHPAD_HANDLER}" ]; then
@@ -329,24 +329,24 @@ function build_universal() {
     echo "Creating universal binary..."
     # PROJECT_BUILD_DIR="$PROJECT_DIR/build_Universal"
     mkdir -p "$PROJECT_BUILD_DIR/Snapmaker_Orca"
-    UNIVERSAL_APP="$PROJECT_BUILD_DIR/Snapmaker_Orca/Snapmaker Orca.app"
+    UNIVERSAL_APP="$PROJECT_BUILD_DIR/Snapmaker_Orca/MuSaiCa.app"
     rm -rf "$UNIVERSAL_APP"
-    cp -R "$PROJECT_DIR/build/arm64/Snapmaker_Orca/Snapmaker Orca.app" "$UNIVERSAL_APP"
+    cp -R "$PROJECT_DIR/build/arm64/Snapmaker_Orca/MuSaiCa.app" "$UNIVERSAL_APP"
     
     # Get the binary path inside the .app bundle
     BINARY_PATH="Contents/MacOS/Snapmaker_Orca"
     
     # Create universal binary using lipo
     lipo -create \
-        "$PROJECT_DIR/build/x86_64/Snapmaker_Orca/Snapmaker Orca.app/$BINARY_PATH" \
-        "$PROJECT_DIR/build/arm64/Snapmaker_Orca/Snapmaker Orca.app/$BINARY_PATH" \
+        "$PROJECT_DIR/build/x86_64/Snapmaker_Orca/MuSaiCa.app/$BINARY_PATH" \
+        "$PROJECT_DIR/build/arm64/Snapmaker_Orca/MuSaiCa.app/$BINARY_PATH" \
         -output "$UNIVERSAL_APP/$BINARY_PATH"
         
     echo "Universal binary created at $UNIVERSAL_APP"
     
     # Create universal crashpad_handler if both architectures have it
-    CRASHPAD_ARM64="${PROJECT_DIR}/build/arm64/Snapmaker_Orca/Snapmaker Orca.app/Contents/MacOS/crashpad_handler"
-    CRASHPAD_X86="${PROJECT_DIR}/build/x86_64/Snapmaker_Orca/Snapmaker Orca.app/Contents/MacOS/crashpad_handler"
+    CRASHPAD_ARM64="${PROJECT_DIR}/build/arm64/Snapmaker_Orca/MuSaiCa.app/Contents/MacOS/crashpad_handler"
+    CRASHPAD_X86="${PROJECT_DIR}/build/x86_64/Snapmaker_Orca/MuSaiCa.app/Contents/MacOS/crashpad_handler"
     CRASHPAD_UNIVERSAL="${UNIVERSAL_APP}/Contents/MacOS/crashpad_handler"
     if [ -f "${CRASHPAD_ARM64}" ] && [ -f "${CRASHPAD_X86}" ]; then
         echo "Creating universal crashpad_handler..."
@@ -358,8 +358,8 @@ function build_universal() {
     fi
     
     # Create universal libsentry.dylib if both architectures have it
-    LIBSENTRY_ARM64="${PROJECT_DIR}/build/arm64/Snapmaker_Orca/Snapmaker Orca.app/Contents/Frameworks/libsentry.dylib"
-    LIBSENTRY_X86="${PROJECT_DIR}/build/x86_64/Snapmaker_Orca/Snapmaker Orca.app/Contents/Frameworks/libsentry.dylib"
+    LIBSENTRY_ARM64="${PROJECT_DIR}/build/arm64/Snapmaker_Orca/MuSaiCa.app/Contents/Frameworks/libsentry.dylib"
+    LIBSENTRY_X86="${PROJECT_DIR}/build/x86_64/Snapmaker_Orca/MuSaiCa.app/Contents/Frameworks/libsentry.dylib"
     LIBSENTRY_UNIVERSAL="${UNIVERSAL_APP}/Contents/Frameworks/libsentry.dylib"
     if [ -f "${LIBSENTRY_ARM64}" ] && [ -f "${LIBSENTRY_X86}" ]; then
         echo "Creating universal libsentry.dylib..."
