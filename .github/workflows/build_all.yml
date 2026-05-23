@@ -2,20 +2,8 @@ name: Build all
 
 on:
   push:
-    branches:
-     - main
-    paths:
-     - 'deps/**'
-     - 'src/**'
-     - '**/CMakeLists.txt'
-     - 'version.inc'
-     - 'CHANGELOG*.md'
-     - 'RELEASE_NOTES*.md'
-     - 'doc/changelogs/**'
-     - 'localization/**'
-     - 'resources/**'
-     - ".github/workflows/build_*.yml"
-     - 'scripts/flatpak/**'
+    tags:
+     - 'v*'
 
   workflow_dispatch: # allows for manual dispatch
     inputs:
