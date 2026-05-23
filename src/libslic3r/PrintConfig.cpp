@@ -101,6 +101,14 @@ static t_config_enum_values s_keys_map_AuthorizationType {
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(AuthorizationType)
 
+static t_config_enum_values s_keys_map_PrintCompletionTune {
+    { "none",          pctNone },
+    { "1up",           pct1Up },
+    { "zelda_chest",   pctZeldaChest },
+    { "sad_trombone",  pctSadTrombone }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(PrintCompletionTune)
+
 static t_config_enum_values s_keys_map_GCodeFlavor {
     { "marlin",         gcfMarlinLegacy },
     { "reprap",         gcfRepRapSprinter },
@@ -654,6 +662,26 @@ void PrintConfigDef::init_common_params()
     def->tooltip = L("Names of presets related to the physical printer.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionStrings());
+
+    // MuSaiCa: end-of-print stepper-music tune. Read by templated machine_end_gcode as
+    // [print_completion_tune] so the printer's tunes.cfg PLAY_* macros can fire.
+    def = this->add("print_completion_tune", coEnum);
+    def->label = L("Print completion tune");
+    def->tooltip = L("Stepper-music jingle to play at the end of a print. Requires tunes.cfg "
+                     "installed on the printer and the matching PLAY_* call (or END_PRINT TUNE=[print_completion_tune]) "
+                     "in machine_end_gcode.");
+    def->enum_keys_map = &ConfigOptionEnum<PrintCompletionTune>::get_enum_values();
+    def->enum_values.push_back("none");
+    def->enum_values.push_back("1up");
+    def->enum_values.push_back("zelda_chest");
+    def->enum_values.push_back("sad_trombone");
+    def->enum_labels.push_back(L("None"));
+    def->enum_labels.push_back(L("Mario 1-Up"));
+    def->enum_labels.push_back(L("Zelda chest open"));
+    def->enum_labels.push_back(L("Sad trombone"));
+    def->mode = comAdvanced;
+    def->cli = ConfigOptionDef::nocli;
+    def->set_default_value(new ConfigOptionEnum<PrintCompletionTune>(pct1Up));
 
     def = this->add("printhost_authorization_type", coEnum);
     def->label = L("Authorization Type");

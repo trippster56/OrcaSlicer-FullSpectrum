@@ -44,3 +44,4 @@ deps_src/build/
 nul
 .codex_tmp
 tests
+resources/webviews/mainsail/

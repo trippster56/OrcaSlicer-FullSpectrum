@@ -1158,7 +1158,50 @@ void MainFrame::init_tabpanel() {
         m_printer_view->load_url(url, key);
     });
 
-    m_printer_view->Hide();
+    // MuSaiCa: write a config.json next to the bundled Mainsail so it auto-connects
+    // to the active printer's Moonraker, then load it in the PrinterWebView tab.
+    {
+        boost::filesystem::path mainsail_dir =
+            boost::filesystem::path(Slic3r::resources_dir()) / "webviews" / "mainsail";
+        boost::filesystem::path mainsail_index = mainsail_dir / "index.html";
+
+        std::string host;
+        int         port = 7125;
+        if (auto* bundle = wxGetApp().preset_bundle) {
+            const auto& cfg = bundle->printers.get_edited_preset().config;
+            if (const auto* opt = cfg.option<ConfigOptionString>("print_host"))
+                host = opt->value;
+        }
+        // Strip scheme and explicit port if the user typed a URL.
+        if (auto p = host.find("://"); p != std::string::npos) host = host.substr(p + 3);
+        if (auto p = host.find('/');   p != std::string::npos) host = host.substr(0, p);
+        if (auto p = host.find(':');   p != std::string::npos) {
+            try { port = std::stoi(host.substr(p + 1)); } catch (...) {}
+            host = host.substr(0, p);
+        }
+
+        try {
+            boost::filesystem::ofstream cfg_out(mainsail_dir / "config.json");
+            cfg_out << "{\n"
+                    << "    \"defaultLocale\": \"en\",\n"
+                    << "    \"defaultMode\": \"dark\",\n"
+                    << "    \"defaultTheme\": \"mainsail\",\n"
+                    << "    \"hostname\": " << (host.empty() ? std::string("null") : ("\"" + host + "\"")) << ",\n"
+                    << "    \"port\": " << port << ",\n"
+                    << "    \"path\": null,\n"
+                    << "    \"instancesDB\": \"moonraker\",\n"
+                    << "    \"instances\": []\n"
+                    << "}\n";
+        } catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(warning) << "MuSaiCa: failed to write Mainsail config.json: " << e.what();
+        }
+
+        wxString mainsail_url = "file://" + wxString::FromUTF8(mainsail_index.string());
+        m_printer_view->load_url(mainsail_url);
+        m_tabpanel->AddPage(m_printer_view, _L("Mainsail"),
+                            std::string("tab_monitor_active"),
+                            std::string("tab_monitor_active"), false);
+    }
 
     if (wxGetApp().is_enable_multi_machine()) {
         m_multi_machine = new MultiMachinePage(m_tabpanel, wxID_ANY, wxDefaultPosition, wxDefaultSize);

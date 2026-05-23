@@ -64,6 +64,11 @@ enum AuthorizationType {
     atKeyPassword, atUserPassword
 };
 
+// MuSaiCa: end-of-print stepper-music jingles (see tunes/tunes.cfg).
+enum PrintCompletionTune {
+    pctNone, pct1Up, pctZeldaChest, pctSadTrombone
+};
+
 enum InfillPattern : int {
     ipMonotonic, ipMonotonicLine,
     ipRectilinear, ipAlignedRectilinear, ipZigZag, ipCrossZag, ipLockedZag,
@@ -479,6 +484,7 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(GCodeThumbnailsFormat)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(CounterboreHoleBridgingOption)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PrintHostType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(AuthorizationType)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PrintCompletionTune)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(WipeTowerWallType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PerimeterGeneratorType)
 
