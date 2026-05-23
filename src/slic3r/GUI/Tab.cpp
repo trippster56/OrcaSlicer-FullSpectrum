@@ -13,6 +13,8 @@
 #include "OG_CustomCtrl.hpp"
 
 #include <wx/app.h>
+#include <wx/sound.h>
+#include "Widgets/Button.hpp"
 #include <wx/button.h>
 #include <wx/scrolwin.h>
 #include <wx/sizer.h>
@@ -26,6 +28,7 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/filesystem.hpp>
 #include "libslic3r/libslic3r.h"
 #include "slic3r/GUI/OptionsGroup.hpp"
 #include "wxExtensions.hpp"
@@ -274,7 +277,7 @@ void Tab::create_preset_tab()
     //search input
     m_search_item = new StaticBox(m_top_panel);
     StateColor box_colour(std::pair<wxColour, int>(*wxWHITE, StateColor::Normal));
-    StateColor box_border_colour(std::pair<wxColour, int>(wxColour("#009688"), StateColor::Normal)); // ORCA match border color with other input/combo boxes
+    StateColor box_border_colour(std::pair<wxColour, int>(wxColour("#12AAE0"), StateColor::Normal)); // ORCA match border color with other input/combo boxes
 
     m_search_item->SetBackgroundColor(box_colour);
     m_search_item->SetBorderColor(box_border_colour);
@@ -4153,9 +4156,15 @@ void TabPrinter::build_fff()
     page = add_options_page(L("Machine G-code"), "custom-gcode_gcode"); // ORCA: icon only visible on placeholders
         optgroup = page->new_optgroup(L("Machine start G-code"), L"param_gcode", 0);
         optgroup->m_on_change = [this, &optgroup_title = optgroup->title](const t_config_option_key& opt_key, const boost::any& value) {
+            // MuSaiCa: skip the gcode-text validator for our enum option.
+            if (opt_key == "print_completion_tune") return;
             validate_custom_gcode_cb(this, optgroup_title, opt_key, value);
         };
         optgroup->edit_custom_gcode = edit_custom_gcode_fn;
+        // MuSaiCa: tune dropdown at top of page. Preview button is a TODO —
+        // append_widget with a button is crashing the page render, root cause
+        // still under investigation.
+        optgroup->append_single_option_line("print_completion_tune");
         option = optgroup->get_option("machine_start_gcode");
         option.opt.full_width = true;
         option.opt.is_code = true;

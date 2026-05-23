@@ -679,7 +679,7 @@ void PrintConfigDef::init_common_params()
     def->enum_labels.push_back(L("Mario 1-Up"));
     def->enum_labels.push_back(L("Zelda chest open"));
     def->enum_labels.push_back(L("Sad trombone"));
-    def->mode = comAdvanced;
+    def->mode = comSimple;
     def->cli = ConfigOptionDef::nocli;
     def->set_default_value(new ConfigOptionEnum<PrintCompletionTune>(pct1Up));
 

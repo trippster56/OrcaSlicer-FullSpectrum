@@ -1161,6 +1161,9 @@ PRINT_CONFIG_CLASS_DEFINE(
     //BBS
     ((ConfigOptionBool,                enable_arc_fitting))
     ((ConfigOptionString,              machine_end_gcode))
+    // MuSaiCa: end-of-print stepper-music tune; substituted into machine_end_gcode
+    // via [print_completion_tune].
+    ((ConfigOptionEnum<PrintCompletionTune>, print_completion_tune))
     ((ConfigOptionStrings,             filament_end_gcode))
     ((ConfigOptionFloats,              filament_flow_ratio))
     ((ConfigOptionBools,               enable_pressure_advance))
