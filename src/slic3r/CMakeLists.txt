@@ -598,6 +598,8 @@ set(SLIC3R_GUI_SOURCES
     Utils/MQTT.cpp
     Utils/MoonRaker.cpp
     Utils/MoonRaker.hpp
+    Utils/SnapmakerCloudSync.cpp
+    Utils/SnapmakerCloudSync.hpp
     Utils/TimeoutMap.hpp
 )
 

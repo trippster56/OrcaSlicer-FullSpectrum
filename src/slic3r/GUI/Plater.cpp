@@ -82,6 +82,7 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SLAPrint.hpp"
 #include "libslic3r/Utils.hpp"
+#include "slic3r/Utils/SnapmakerCloudSync.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 
@@ -8247,6 +8248,56 @@ void Sidebar::sync_ams_list()
     auto obj = wxGetApp().getDeviceManager()->get_selected_machine();
     if (obj)
         GUI::wxGetApp().sidebar().load_ams_list(obj->dev_id, obj);
+
+    // Snapmaker U1 cloud path: when no Bambu MachineObject is selected and the
+    // active printer preset is a Snapmaker cloud-MQTT model, fetch the four
+    // loaded filaments from the printer over AWS IoT using credentials the
+    // user already paired via the Device → Add Device dialog. The async fetch
+    // populates preset_bundle->filament_ams_list, then re-invokes this method
+    // so the normal sync_ams_list flow below picks up the data.
+    if (!obj && wxGetApp().preset_bundle->filament_ams_list.empty()) {
+        const std::string& printer_preset_name =
+            wxGetApp().preset_bundle->printers.get_selected_preset_name();
+        if (SnapmakerCloudSync::is_snapmaker_cloud_printer(printer_preset_name)) {
+            DeviceInfo device;
+            if (!SnapmakerCloudSync::find_paired_device(printer_preset_name, device)) {
+                MessageDialog dlg(this,
+                    _L("No paired Snapmaker printer found. Open Device → Add Device "
+                       "to pair your printer, then try again."),
+                    _L("Sync filaments with AMS"), wxOK);
+                dlg.ShowModal();
+                return;
+            }
+
+            auto busy = std::make_shared<wxBusyInfo>(
+                _L("Fetching loaded filaments from your Snapmaker printer..."), this);
+
+            SnapmakerCloudSync::fetch_filament_ams_list(device,
+                [this, busy, device](const SnapmakerCloudSync::SyncResult& r) {
+                    // Dismiss the busy indicator on UI thread.
+                    const_cast<std::shared_ptr<wxBusyInfo>&>(busy).reset();
+
+                    if (!r.ok) {
+                        MessageDialog dlg(this,
+                            wxString::Format(_L("Could not fetch filaments: %s"),
+                                             from_u8(r.error_message)),
+                            _L("Sync filaments with AMS"), wxOK);
+                        dlg.ShowModal();
+                        return;
+                    }
+
+                    // Push the fetched slots onto preset_bundle and rerun
+                    // the normal sync. ams_list_device is used by the existing
+                    // matcher to key "remembered" choices per device.
+                    wxGetApp().preset_bundle->filament_ams_list = r.filament_ams_list;
+                    p->ams_list_device = device.sn.empty() ? device.dev_id : device.sn;
+                    for (auto c : p->combos_filament)
+                        c->update();
+                    this->sync_ams_list();
+                });
+            return;
+        }
+    }
 
     auto & list = wxGetApp().preset_bundle->filament_ams_list;
     if (list.empty()) {
