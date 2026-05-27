@@ -36,7 +36,11 @@ public:
 
     int GetLastError() const { return m_error; }
 
-    static constexpr wxMediaState MEDIASTATE_BUFFERING = (wxMediaState) 6;
+    // Note: not constexpr because casting 6 to a wxMediaState (whose valid
+    // range is [0,3]) is rejected by Apple clang in constexpr context on
+    // macOS 15+. Runtime cast is fine; wxWidgets itself treats the value as
+    // an opaque tag for the buffering pseudo-state.
+    static const wxMediaState MEDIASTATE_BUFFERING = (wxMediaState) 6;
 
 protected:
     void DoSetSize(int x, int y, int width, int height, int sizeFlags) override;
