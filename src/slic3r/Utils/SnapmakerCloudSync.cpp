@@ -159,62 +159,34 @@ SnapmakerCloudSync::build_filament_ams_list_from_print_task_config(const nlohman
     return result;
 }
 
-void SnapmakerCloudSync::fetch_filament_ams_list(const DeviceInfo& device,
+void SnapmakerCloudSync::fetch_filament_ams_list(const DeviceInfo& /*unused*/,
                                                 std::function<void(const SyncResult&)> on_done)
 {
     if (!on_done) return;
 
-    // Snapshot the certs / endpoint so we can hand them to the worker thread
-    // without capturing references to caller-owned state.
-    const DeviceInfo snap = device;
+    // FullSpectrum and the official Snapmaker Orca don't persist AWS IoT
+    // credentials to AppConfig — the Flutter UI fetches them fresh from
+    // Snapmaker cloud at startup and binds them to a live Moonraker_Mqtt
+    // engine that the Device tab uses for everything. Borrow that engine
+    // instead of building our own.
+    std::shared_ptr<PrintHost> live_host;
+    wxGetApp().get_connect_host(live_host);
+    std::shared_ptr<Moonraker_Mqtt> host = std::dynamic_pointer_cast<Moonraker_Mqtt>(live_host);
 
-    std::thread([snap, on_done]() {
+    if (!host) {
+        SyncResult result;
+        result.error_message = "No active printer connection. "
+                               "Open the Device tab and connect to your Snapmaker printer first.";
+        wxGetApp().CallAfter([on_done, result]() { on_done(result); });
+        return;
+    }
+
+    std::thread([host, on_done]() {
         auto deliver = [&](SyncResult r) {
             wxGetApp().CallAfter([on_done, r = std::move(r)]() { on_done(r); });
         };
 
         SyncResult result;
-
-        if (snap.ca.empty() || snap.cert.empty() || snap.key.empty() ||
-            snap.ip.empty() || snap.port <= 0 || snap.clientId.empty() || snap.sn.empty()) {
-            result.error_message = "Paired device is missing AWS IoT credentials. "
-                                   "Re-add the printer via Device → Add Device.";
-            deliver(std::move(result));
-            return;
-        }
-
-        // Build a transient PrintConfig so PrintHost factory hands us a
-        // Moonraker_Mqtt. We never mutate the user's selected printer preset.
-        DynamicPrintConfig cfg;
-        cfg.set_key_value("print_host", new ConfigOptionString{
-            snap.ip + (snap.port > 0 ? ":" + std::to_string(snap.port) : std::string{}) });
-        cfg.set_key_value("host_type",
-            new ConfigOptionEnum<PrintHostType>(htMoonRaker_mqtt));
-
-        std::shared_ptr<PrintHost> tmp(PrintHost::get_print_host(&cfg));
-        std::shared_ptr<Moonraker_Mqtt> host = std::dynamic_pointer_cast<Moonraker_Mqtt>(tmp);
-        if (!host) {
-            result.error_message = "Failed to instantiate Moonraker_Mqtt host";
-            deliver(std::move(result));
-            return;
-        }
-
-        nlohmann::json params;
-        params["ca"]       = snap.ca;
-        params["cert"]     = snap.cert;
-        params["key"]      = snap.key;
-        params["port"]     = snap.port;
-        params["clientId"] = snap.clientId;
-        params["sn"]       = snap.sn;
-        if (!snap.user.empty())     params["user"]     = snap.user;
-        if (!snap.password.empty()) params["password"] = snap.password;
-
-        wxString connect_msg;
-        if (!host->connect(connect_msg, params)) {
-            result.error_message = "MQTT connect failed: " + connect_msg.ToStdString();
-            deliver(std::move(result));
-            return;
-        }
 
         // The Moonraker query is async. Bridge it to this thread with a
         // promise so we can produce a synchronous SyncResult per-call.
@@ -244,20 +216,25 @@ void SnapmakerCloudSync::fetch_filament_ams_list(const DeviceInfo& device,
             return;
         }
 
-        // Standard Moonraker shape:
-        //   {jsonrpc, id, result: {eventtime, status: {print_task_config: {...}}}}
-        // Defensively, also accept shapes where the inner object is at the
-        // top level (which is what our log capture showed after WCP unwrap).
+        // Snapmaker's MQTT bridge unwraps the Moonraker JSON-RPC envelope
+        // and re-wraps the result under "data" instead of "result":
+        //   {method:"", data:{eventtime, status:{print_task_config:{...}}}}
+        // Standard Moonraker over HTTP would put it under "result"; we accept
+        // either, plus a couple of flatter shapes for defensiveness.
         nlohmann::json ptc;
-        if (response.contains("result") && response["result"].contains("status") &&
-            response["result"]["status"].contains("print_task_config")) {
-            ptc = response["result"]["status"]["print_task_config"];
-        } else if (response.contains("status") &&
-                   response["status"].contains("print_task_config")) {
-            ptc = response["status"]["print_task_config"];
-        } else if (response.contains("print_task_config")) {
-            ptc = response["print_task_config"];
-        }
+        auto try_path = [&](const nlohmann::json& root, std::initializer_list<const char*> keys) {
+            const nlohmann::json* cur = &root;
+            for (const char* k : keys) {
+                if (!cur->is_object() || !cur->contains(k)) return false;
+                cur = &(*cur)[k];
+            }
+            ptc = *cur;
+            return true;
+        };
+        try_path(response, {"data",   "status", "print_task_config"}) ||
+        try_path(response, {"result", "status", "print_task_config"}) ||
+        try_path(response, {"status", "print_task_config"})            ||
+        try_path(response, {"print_task_config"});
 
         if (!ptc.is_object()) {
             result.error_message = "Response did not contain print_task_config object. "

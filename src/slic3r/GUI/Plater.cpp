@@ -1405,15 +1405,26 @@ Sidebar::Sidebar(Plater *parent)
         bSizer39->Hide(p->m_bpButton_del_filament); // ORCA: Hide delete filament button if there is only one filament
     }
 
-    ams_btn = new ScalableButton(p->m_panel_filament_title, wxID_ANY, "ams_fila_sync", wxEmptyString, wxDefaultSize, wxDefaultPosition,
-                                                 wxBU_EXACTFIT | wxNO_BORDER, false, 16); // ORCA match icon size with other icons as 16x16
-    ams_btn->SetToolTip(_L("Synchronize filament list from AMS"));
-    ams_btn->Bind(wxEVT_BUTTON, [this, scrolled_sizer](wxCommandEvent &e) {
+    // SnapSync: surface AMS sync as a plain text button alongside Flushing
+    // Volumes. The original ScalableButton variant was inheriting an invisible
+    // state from somewhere in the FullSpectrum layout — switching to a plain
+    // Button matches the Flushing Volumes button shape and is unconditional.
+    auto* sync_btn = new Button(p->m_panel_filament_title, _L("Sync filaments"));
+    sync_btn->SetStyle(ButtonStyle::Confirm, ButtonType::Compact);
+    sync_btn->SetToolTip(_L("Synchronize filament list from AMS"));
+    sync_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         sync_ams_list();
     });
-    p->m_bpButton_ams_filament = ams_btn;
+    bSizer39->Add(sync_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(5));
 
+    // Keep the legacy hidden ScalableButton so existing rescale/refresh code
+    // paths that reference m_bpButton_ams_filament don't null-deref.
+    ams_btn = new ScalableButton(p->m_panel_filament_title, wxID_ANY, "ams_fila_sync", wxEmptyString, wxDefaultSize, wxDefaultPosition,
+                                                 wxBU_EXACTFIT | wxNO_BORDER, false, 16);
+    ams_btn->Hide();
+    p->m_bpButton_ams_filament = ams_btn;
     bSizer39->Add(ams_btn, 0, wxALIGN_CENTER | wxLEFT, FromDIP(SidebarProps::IconSpacing()));
+    bSizer39->Hide(ams_btn);
     //bSizer39->Add(FromDIP(10), 0, 0, 0, 0 );
 
     ScalableButton* set_btn = new ScalableButton(p->m_panel_filament_title, wxID_ANY, "settings");
@@ -8259,21 +8270,14 @@ void Sidebar::sync_ams_list()
         const std::string& printer_preset_name =
             wxGetApp().preset_bundle->printers.get_selected_preset_name();
         if (SnapmakerCloudSync::is_snapmaker_cloud_printer(printer_preset_name)) {
-            DeviceInfo device;
-            if (!SnapmakerCloudSync::find_paired_device(printer_preset_name, device)) {
-                MessageDialog dlg(this,
-                    _L("No paired Snapmaker printer found. Open Device → Add Device "
-                       "to pair your printer, then try again."),
-                    _L("Sync filaments with AMS"), wxOK);
-                dlg.ShowModal();
-                return;
-            }
-
             auto busy = std::make_shared<wxBusyInfo>(
                 _L("Fetching loaded filaments from your Snapmaker printer..."), this);
 
-            SnapmakerCloudSync::fetch_filament_ams_list(device,
-                [this, busy, device](const SnapmakerCloudSync::SyncResult& r) {
+            // Reuses the live Moonraker_Mqtt host bound by the Flutter UI at
+            // startup — no separate cert exchange needed on our side.
+            DeviceInfo unused{};
+            SnapmakerCloudSync::fetch_filament_ams_list(unused,
+                [this, busy](const SnapmakerCloudSync::SyncResult& r) {
                     // Dismiss the busy indicator on UI thread.
                     const_cast<std::shared_ptr<wxBusyInfo>&>(busy).reset();
 
@@ -8288,9 +8292,12 @@ void Sidebar::sync_ams_list()
 
                     // Push the fetched slots onto preset_bundle and rerun
                     // the normal sync. ams_list_device is used by the existing
-                    // matcher to key "remembered" choices per device.
+                    // matcher to key "remembered" choices per device — we
+                    // use the printer preset name as a stable per-printer key
+                    // since FullSpectrum doesn't persist DeviceInfo.
                     wxGetApp().preset_bundle->filament_ams_list = r.filament_ams_list;
-                    p->ams_list_device = device.sn.empty() ? device.dev_id : device.sn;
+                    p->ams_list_device = wxGetApp().preset_bundle->printers
+                        .get_selected_preset_name();
                     for (auto c : p->combos_filament)
                         c->update();
                     this->sync_ams_list();
